@@ -1,0 +1,33 @@
+{
+  "name": "pi-mesh",
+  "version": "0.1.0",
+  "description": "Multi-agent coordination for Pi - presence, messaging, file reservations",
+  "type": "module",
+  "license": "MIT",
+  "author": "rhnvrm",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rhnvrm/pi-mesh.git"
+  },
+  "homepage": "https://github.com/rhnvrm/pi-mesh#readme",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "extension",
+    "multi-agent",
+    "coordination",
+    "mesh",
+    "messaging",
+    "reservations"
+  ],
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "files": [
+    "*.ts",
+    "README.md",
+    "tests/",
+    "test-manual.sh"
+  ]
+}
