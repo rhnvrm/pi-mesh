@@ -53,7 +53,7 @@ Open the overlay to see everything at a glance:
 
 ## Features
 
-**Presence** - Agents register on startup. See who's active, what model they're using, which git branch, and what they're currently doing. Background/daemon agents are tagged with `(bg)`.
+**Presence** - Agents register on startup. See who's active, what model they're using, which git branch, and what they're currently doing. Non-interactive sessions (`--print` mode) skip registration entirely.
 
 **File Reservations** - Claim files or directories. Other agents get blocked with a message telling them who to coordinate with. The blocking message includes the reserver's name and reason, plus a ready-made `mesh_send` command to request access. Read operations are never blocked.
 
@@ -143,7 +143,6 @@ Create `.pi/pi-mesh.json`:
   "contextMode": "full",
   "feedRetention": 50,
   "stuckThreshold": 900,
-  "stuckNotify": true,
   "autoStatus": true
 }
 ```
@@ -155,10 +154,11 @@ Create `.pi/pi-mesh.json`:
 | contextMode | Context injection: "full", "minimal", "none" | "full" |
 | feedRetention | Max events in activity feed | 50 |
 | stuckThreshold | Seconds idle before stuck detection | 900 |
-| stuckNotify | Notify when a peer appears stuck | true |
 | autoStatus | Auto-generate status from activity | true |
 
 Config priority: project `.pi/pi-mesh.json` > user `~/.pi/agent/pi-mesh.json` > `~/.pi/agent/settings.json` "mesh" key > defaults.
+
+Library default for `autoRegister` is `false`. Projects that want all agents to coordinate should set it to `true` in their project config.
 
 ## How It Works
 
@@ -179,7 +179,7 @@ File-based coordination. No daemon, no server.
 - Urgent messages use Pi's `steer` delivery (interrupts current work)
 - Reservations stored in agent's registry entry, enforced via `tool_call` hook on `edit`/`write`
 - Activity tracked by hooking `tool_call`/`tool_result` events
-- Non-interactive sessions (daemon, subagents) tagged as `(bg)` with auto-status
+- Non-interactive sessions (`--print` mode, daemon tasks) skip registration entirely
 
 ## Naming
 
