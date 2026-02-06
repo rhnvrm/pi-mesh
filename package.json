@@ -24,9 +24,15 @@
   "pi": {
     "extensions": ["./index.ts"]
   },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "@sinclair/typebox": "*"
+  },
   "files": [
     "*.ts",
     "README.md",
+    "LICENSE",
     "tests/",
     "test-manual.sh"
   ]
