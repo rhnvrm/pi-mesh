@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
 
@@ -16,13 +17,6 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install dependencies
-        run: bun install --no-save
-        env:
-          # pi-tui and pi-coding-agent are peer deps provided by Pi at runtime
-          # Install them for testing only
-          NODE_ENV: development
-
       - name: Install peer dependencies for testing
         run: bun add --dev @mariozechner/pi-coding-agent @mariozechner/pi-tui @sinclair/typebox
 
@@ -32,9 +26,9 @@ jobs:
   publish:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -44,21 +38,21 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Check if version changed
-        id: version
+      - name: Verify tag matches package.json version
         run: |
-          CURRENT=$(node -p "require('./package.json').version")
-          PUBLISHED=$(npm view pi-mesh version 2>/dev/null || echo "0.0.0")
-          if [ "$CURRENT" != "$PUBLISHED" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Version changed: $PUBLISHED -> $CURRENT"
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "Version unchanged: $CURRENT"
+          TAG="${GITHUB_REF#refs/tags/v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Tag v$TAG does not match package.json version $PKG"
+            exit 1
           fi
 
       - name: Publish to npm
-        if: steps.version.outputs.changed == 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
