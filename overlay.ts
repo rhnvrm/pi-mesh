@@ -22,6 +22,8 @@ export class MeshOverlay implements Component {
   private scrollOffset = 0;
   private chatInput = "";
   private chatTarget = "@all";
+  private completionCandidates: string[] = [];
+  private completionIndex = -1;
 
   constructor(
     private tui: TUI,
@@ -84,8 +86,12 @@ export class MeshOverlay implements Component {
       return;
     }
 
-    // Tab to switch tabs
+    // Tab: completion if chat input has @, otherwise switch tabs
     if (matchesKey(data, Key.tab)) {
+      if (this.currentTab === "chat" && this.chatInput.includes("@")) {
+        this.handleMentionComplete();
+        return;
+      }
       const idx = this.tabs.indexOf(this.currentTab);
       this.currentTab = this.tabs[(idx + 1) % this.tabs.length];
       this.scrollOffset = 0;
@@ -108,17 +114,23 @@ export class MeshOverlay implements Component {
     // Chat input
     if (this.currentTab === "chat") {
       if (matchesKey(data, Key.enter)) {
+        this.completionCandidates = [];
+        this.completionIndex = -1;
         this.sendChatMessage();
         return;
       }
       if (matchesKey(data, Key.backspace)) {
         this.chatInput = this.chatInput.slice(0, -1);
+        this.completionCandidates = [];
+        this.completionIndex = -1;
         this.tui.requestRender();
         return;
       }
       // Regular character input
       if (data.length === 1 && !data.startsWith("\x1b")) {
         this.chatInput += data;
+        this.completionCandidates = [];
+        this.completionIndex = -1;
         this.tui.requestRender();
         return;
       }
@@ -276,10 +288,54 @@ export class MeshOverlay implements Component {
     // Input area
     lines.push("");
     lines.push(this.theme.fg("dim", "  " + "─".repeat(width - 4)));
+
+    // Show completion candidates if active
+    if (this.completionCandidates.length > 1) {
+      const hints = this.completionCandidates.map((c, i) =>
+        i === this.completionIndex
+          ? this.theme.fg("accent", `@${c}`)
+          : this.theme.fg("dim", `@${c}`)
+      );
+      lines.push(`  ${hints.join("  ")}`);
+    }
+
     lines.push(`  ${this.theme.fg("dim", `To: ${this.chatTarget}`)}`);
     lines.push(`  > ${this.chatInput}`);
 
     return lines;
+  }
+
+  private handleMentionComplete(): void {
+    // Find the @partial being typed
+    const atIdx = this.chatInput.lastIndexOf("@");
+    if (atIdx === -1) return;
+
+    const partial = this.chatInput.slice(atIdx + 1).toLowerCase();
+    const agents = registry.getActiveAgents(this.state, this.dirs);
+    const names = agents.map((a) => a.name);
+
+    // On first Tab, build candidates matching the partial
+    if (this.completionCandidates.length === 0) {
+      this.completionCandidates = partial
+        ? names.filter((n) => n.toLowerCase().startsWith(partial))
+        : names;
+      // Add @all as an option
+      if ("all".startsWith(partial)) {
+        this.completionCandidates.push("all");
+      }
+      this.completionIndex = 0;
+    } else {
+      // Cycle through candidates
+      this.completionIndex =
+        (this.completionIndex + 1) % this.completionCandidates.length;
+    }
+
+    if (this.completionCandidates.length === 0) return;
+
+    const completed = this.completionCandidates[this.completionIndex];
+    this.chatInput = this.chatInput.slice(0, atIdx) + "@" + completed + " ";
+    this.chatTarget = "@" + completed;
+    this.tui.requestRender();
   }
 
   private sendChatMessage(): void {
