@@ -5,6 +5,7 @@
  */
 
 import type { MeshState, Dirs } from "./types.js";
+import { EDIT_DEBOUNCE_MS, RECENT_WINDOW_MS } from "./types.js";
 import { logEvent } from "./feed.js";
 
 // =============================================================================
@@ -18,9 +19,6 @@ let recentTestRuns = 0;
 let recentTestTimer: ReturnType<typeof setTimeout> | null = null;
 let recentEdits = 0;
 let recentEditTimer: ReturnType<typeof setTimeout> | null = null;
-
-const EDIT_DEBOUNCE_MS = 5000;
-const RECENT_WINDOW_MS = 60_000;
 
 // =============================================================================
 // Command Detection
