@@ -5,7 +5,7 @@
  */
 
 import * as fs from "node:fs";
-import { join, basename } from "node:path";
+import { join, basename, normalize } from "node:path";
 import { execSync } from "node:child_process";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type {
@@ -469,11 +469,22 @@ export function renameAgent(
     // Ignore
   }
 
-  // Set up new inbox, clean old
+  // Move pending messages from old inbox to new, then clean old
+  const oldInbox = join(dirs.inbox, oldName);
   const newInbox = join(dirs.inbox, newName);
   ensureDirSync(newInbox);
   try {
-    fs.rmdirSync(join(dirs.inbox, oldName));
+    if (fs.existsSync(oldInbox)) {
+      const files = fs.readdirSync(oldInbox).filter((f) => f.endsWith(".json"));
+      for (const file of files) {
+        try {
+          fs.renameSync(join(oldInbox, file), join(newInbox, file));
+        } catch {
+          // Best effort
+        }
+      }
+      fs.rmSync(oldInbox, { recursive: true, force: true });
+    }
   } catch {
     // Ignore
   }
@@ -494,10 +505,13 @@ export function pathMatchesReservation(
   filePath: string,
   pattern: string
 ): boolean {
-  if (pattern.endsWith("/")) {
-    return filePath.startsWith(pattern) || filePath + "/" === pattern;
+  const normFile = normalize(filePath).replace(/^\.\//, "");
+  const normPattern = normalize(pattern).replace(/^\.\//, "");
+
+  if (normPattern.endsWith("/")) {
+    return normFile.startsWith(normPattern) || normFile + "/" === normPattern;
   }
-  return filePath === pattern;
+  return normFile === normPattern;
 }
 
 export function getConflicts(

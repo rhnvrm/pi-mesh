@@ -14,7 +14,6 @@ export interface MeshConfig {
   contextMode: "full" | "minimal" | "none";
   feedRetention: number;
   stuckThreshold: number;
-  stuckNotify: boolean;
   autoStatus: boolean;
 }
 

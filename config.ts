@@ -19,7 +19,7 @@ const DEFAULT_CONFIG: MeshConfig = {
   contextMode: "full",
   feedRetention: 50,
   stuckThreshold: 900,
-  stuckNotify: true,
+
   autoStatus: true,
 };
 
@@ -114,7 +114,7 @@ export function loadConfig(cwd: string): MeshConfig {
     contextMode: validateContextMode(merged.contextMode),
     feedRetention: typeof merged.feedRetention === "number" ? merged.feedRetention : DEFAULT_CONFIG.feedRetention,
     stuckThreshold: typeof merged.stuckThreshold === "number" ? merged.stuckThreshold : DEFAULT_CONFIG.stuckThreshold,
-    stuckNotify: merged.stuckNotify !== false,
+
     autoStatus: merged.autoStatus !== false,
   };
 }

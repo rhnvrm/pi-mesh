@@ -88,7 +88,11 @@ export function sendMessage(
 
   const random = Math.random().toString(36).substring(2, 8);
   const msgFile = join(targetInbox, `${Date.now()}-${random}.json`);
-  fs.writeFileSync(msgFile, JSON.stringify(msg, null, 2));
+  try {
+    fs.writeFileSync(msgFile, JSON.stringify(msg, null, 2));
+  } catch (err) {
+    throw new Error(`Failed to write message to ${to}: ${(err as Error).message}`);
+  }
 
   return msg;
 }
