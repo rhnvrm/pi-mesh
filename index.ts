@@ -25,7 +25,7 @@ export default function piMeshExtension(pi: ExtensionAPI) {
 
   const state: MeshState = {
     agentName: "",
-    agentType: process.env.PI_AGENT || "agent",
+    agentType: process.env.PI_AGENT ?? "agent",
     registered: false,
     watcher: null,
     watcherRetries: 0,
@@ -137,8 +137,7 @@ export default function piMeshExtension(pi: ExtensionAPI) {
         const indicator = STATUS_INDICATORS[computed.status];
         const nameLabel = isSelf ? `${a.name} (you)` : a.name;
 
-        const bgTag = a.isHuman === false ? " (bg)" : "";
-        const parts: string[] = [`${indicator} ${nameLabel}${bgTag}`];
+        const parts: string[] = [`${indicator} ${nameLabel}`];
 
         if (a.activity?.currentActivity) {
           parts.push(a.activity.currentActivity);
@@ -573,7 +572,7 @@ export default function piMeshExtension(pi: ExtensionAPI) {
         result.push(header + urgentTag);
         result.push("");
         for (const line of details.text.split("\n")) {
-          result.push(line.length > width ? line.slice(0, width - 1) + "..." : line);
+          result.push(line.length > width ? line.slice(0, width - 3) + "..." : line);
         }
         return result;
       },
@@ -588,6 +587,10 @@ export default function piMeshExtension(pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     state.isHuman = ctx.hasUI;
 
+    // Non-interactive sessions (--print mode, daemon tasks) should not join the mesh.
+    // They have no UI for message delivery and would spam interactive agents.
+    if (!ctx.hasUI) return;
+
     const shouldAutoRegister =
       config.autoRegister ||
       matchesAutoRegisterPath(process.cwd(), config.autoRegisterPaths);
@@ -601,13 +604,6 @@ export default function piMeshExtension(pi: ExtensionAPI) {
       updateStatusBar(ctx);
       feed.pruneFeed(dirs, config.feedRetention);
       feed.logEvent(dirs, state.agentName, "join");
-
-      // Auto-status for non-interactive (daemon/subagent) sessions
-      if (!ctx.hasUI) {
-        state.statusMessage = "background task";
-        state.customStatus = false; // allow auto-status to override later
-        registry.updateRegistration(state, dirs, ctx);
-      }
 
       // Inject context message so the LLM knows its mesh identity
       if (config.contextMode !== "none") {

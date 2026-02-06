@@ -70,4 +70,13 @@ describe("pathMatchesReservation", () => {
     expect(pathMatchesReservation("package.json", "package.json")).toBe(true);
     expect(pathMatchesReservation("package-lock.json", "package.json")).toBe(false);
   });
+
+  it("normalizes paths with ./ prefix", () => {
+    expect(pathMatchesReservation("./src/auth/login.ts", "src/auth/")).toBe(true);
+    expect(pathMatchesReservation("src/auth/login.ts", "./src/auth/")).toBe(true);
+  });
+
+  it("normalizes paths with ../ segments", () => {
+    expect(pathMatchesReservation("src/../src/auth/login.ts", "src/auth/")).toBe(true);
+  });
 });

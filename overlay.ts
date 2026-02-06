@@ -58,6 +58,9 @@ export class MeshOverlay implements Component {
 
     // Content
     const content = this.renderTab(width);
+    // Clamp scroll offset to content bounds
+    const maxScroll = Math.max(0, content.length - 1);
+    if (this.scrollOffset > maxScroll) this.scrollOffset = maxScroll;
     const visible = content.slice(this.scrollOffset);
     for (const line of visible) {
       lines.push(line);
@@ -106,7 +109,7 @@ export class MeshOverlay implements Component {
       return;
     }
     if (matchesKey(data, Key.down)) {
-      this.scrollOffset++;
+      this.scrollOffset++; // Clamped during render
       this.tui.requestRender();
       return;
     }
