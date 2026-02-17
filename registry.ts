@@ -103,16 +103,10 @@ export function ensureDataDirs(dirs: Dirs): void {
 // =============================================================================
 
 /**
- * Generate a unique agent name.
- * Format: {agentType}-{N} where N is sequential.
- * Respects PI_AGENT_NAME env var for explicit naming.
+ * Find the next available sequential name ({agentType}-1, -2, ...).
+ * Skips names held by live processes.
  */
-export function generateName(agentType: string, dirs: Dirs): string {
-  // Explicit name override
-  const explicitName = process.env.PI_AGENT_NAME;
-  if (explicitName) return explicitName;
-
-  // Sequential naming: find next available number
+function generateNameSequential(agentType: string, dirs: Dirs): string | null {
   if (!fs.existsSync(dirs.registry)) return `${agentType}-1`;
 
   const existing = new Set<string>();
@@ -143,6 +137,18 @@ export function generateName(agentType: string, dirs: Dirs): string {
 
   // Fallback: use PID
   return `${agentType}-${process.pid}`;
+}
+
+/**
+ * Generate a unique agent name.
+ * Respects PI_AGENT_NAME env var for explicit naming,
+ * otherwise falls back to sequential ({agentType}-1, -2, ...).
+ */
+export function generateName(agentType: string, dirs: Dirs): string {
+  const explicitName = process.env.PI_AGENT_NAME;
+  if (explicitName) return explicitName;
+
+  return generateNameSequential(agentType, dirs) ?? `${agentType}-${process.pid}`;
 }
 
 function isValidAgentName(name: string): boolean {
@@ -180,9 +186,15 @@ export function register(
         fs.readFileSync(regPath, "utf-8")
       );
       if (isProcessAlive(existing.pid) && existing.pid !== process.pid) {
-        // Name taken by live agent - shouldn't happen with sequential naming
-        // but handle gracefully
-        return false;
+        // Name taken by a live agent (e.g. tmux session was renamed but the
+        // mesh entry kept the old name). Fall back to sequential naming so
+        // we always join the mesh, even if the name won't match tmux.
+        const fallback = generateNameSequential(state.agentType, dirs);
+        if (!fallback) return false;
+        state.agentName = fallback;
+        // Re-check the fallback name's registration path isn't also taken
+        // (generateNameSequential already verified PID liveness, so just proceed)
+        return register(state, dirs, ctx);
       }
     } catch {
       // Malformed, overwrite
