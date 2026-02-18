@@ -571,7 +571,7 @@ export default function piMeshExtension(pi: ExtensionAPI) {
         const result: string[] = [];
         result.push(header + urgentTag);
         result.push("");
-        for (const line of details.text.split("\n")) {
+        for (const line of (details.text ?? "").split("\n")) {
           result.push(line.length > width ? line.slice(0, width - 3) + "..." : line);
         }
         return result;
