@@ -6,6 +6,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { truncateToWidth } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import type { MeshState, Dirs, MeshMessage, MeshConfig } from "./types.js";
 import { STATUS_INDICATORS, REGISTRY_FLUSH_MS } from "./types.js";
@@ -572,7 +573,7 @@ export default function piMeshExtension(pi: ExtensionAPI) {
         result.push(header + urgentTag);
         result.push("");
         for (const line of (details.text ?? "").split("\n")) {
-          result.push(line.length > width ? line.slice(0, width - 3) + "..." : line);
+          result.push(truncateToWidth(line, width));
         }
         return result;
       },
