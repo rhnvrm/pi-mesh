@@ -17,8 +17,8 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install peer dependencies for testing
-        run: bun add --dev @mariozechner/pi-coding-agent @mariozechner/pi-tui @sinclair/typebox
+      - name: Install dependencies (includes pinned peer deps from devDependencies)
+        run: bun install && bun add --dev @mariozechner/pi-tui @sinclair/typebox
 
       - name: Run tests
         run: bun test

@@ -26,6 +26,11 @@
       "./index.ts"
     ]
   },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "^0.58.1",
+    "@oddship/quartermaster": "github:oddship/quartermaster",
+    "bun-types": "latest"
+  },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*",
     "@mariozechner/pi-tui": "*",
