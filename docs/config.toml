@@ -1,0 +1,13 @@
+site_name = "pi-mesh"
+base_path = "/pi-mesh"
+
+[highlight]
+enabled = true
+
+[[links]]
+label = "GitHub"
+url = "https://github.com/rhnvrm/pi-mesh"
+
+[[links]]
+label = "npm"
+url = "https://www.npmjs.com/package/pi-mesh"

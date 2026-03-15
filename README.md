@@ -107,7 +107,7 @@ Full config with defaults:
 | Setting | What it does | Default |
 |---------|-------------|---------|
 | autoRegister | Join mesh when Pi starts | false |
-| autoRegisterPaths | Only auto-join in these folders (globs ok) | [] |
+| autoRegisterPaths | Only auto-join in these folders (trailing `*` wildcards) | [] |
 | contextMode | How much context to inject: "full", "minimal", "none" | "full" |
 | feedRetention | Max events kept in the activity feed | 50 |
 | stuckThreshold | Seconds idle before an agent is marked stuck | 900 |
@@ -133,6 +133,10 @@ mesh_manage({ action: "rename", name: "auth-worker" })
 - **Concurrent feed writes** can produce partial JSON lines. Malformed lines are skipped on read.
 - **PID checking** doesn't work across container boundaries.
 - **Crashed agents** leave stale registrations until the next `mesh_peers` cleans them up.
+
+## Documentation
+
+Full docs at [rhnvrm.github.io/pi-mesh](https://rhnvrm.github.io/pi-mesh/).
 
 ## Credits
 

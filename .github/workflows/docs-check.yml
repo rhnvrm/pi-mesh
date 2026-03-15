@@ -1,0 +1,20 @@
+name: Test docs build
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-check.yml'
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install moat
+        run: |
+          URL=$(gh api repos/oddship/moat/releases/latest --jq '.assets[] | select(.name | contains("linux-amd64")) | .browser_download_url')
+          curl -sLf "$URL" -o moat
+          chmod +x moat
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Build docs
+        run: ./moat build docs _site
