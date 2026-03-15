@@ -127,6 +127,49 @@ Override with `PI_AGENT_NAME` env var, or rename at runtime:
 mesh_manage({ action: "rename", name: "auth-worker" })
 ```
 
+## Lifecycle Hooks
+
+pi-mesh supports lifecycle hooks for reacting to mesh events without forking the package. Specify a module path in your config:
+
+```json
+{
+  "autoRegister": true,
+  "hooksModule": "./mesh-hooks.ts"
+}
+```
+
+The module should export a `createHooks` function:
+
+```typescript
+import type { MeshConfig, MeshLifecycleHooks } from "pi-mesh/types";
+
+export function createHooks(config: MeshConfig): MeshLifecycleHooks {
+  return {
+    onRegistered(state, ctx, actions) {
+      // Called after successful mesh registration.
+      // Use actions.rename("new-name") to trigger a mesh rename.
+    },
+    onRenamed(state, ctx, result) {
+      // Called after a successful rename (from mesh_manage or actions.rename).
+    },
+    onPollTick(state, ctx, actions) {
+      // Called on an interval while registered (default 2s).
+      // Can call actions.rename() to sync external name changes into mesh.
+    },
+    onShutdown(state) {
+      // Called during session shutdown, before unregister.
+    },
+  };
+}
+```
+
+All hooks are optional. The poll interval defaults to 2 seconds and can be customized by setting `state.hookState.pollIntervalMs` in `onRegistered` (read once when the timer starts; not dynamic at runtime).
+
+Hooks receive `MeshState` which includes an optional `hookState: Record<string, unknown>` bag for storing custom state across calls.
+
+`onRegistered` and `onPollTick` receive a `HookActions` object with:
+- `actions.rename(newName)` — rename this agent in the mesh registry. Handles watcher cycling internally and fires `onRenamed` on success. Returns `RenameResult` so hooks can handle failures (e.g., revert a tmux window on collision).
+
 ## Limitations
 
 - **`bash` bypasses reservations.** Only `edit` and `write` are hooked. A `sed -i` through bash won't be caught.

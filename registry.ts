@@ -173,28 +173,24 @@ export function register(
 
   ensureDataDirs(dirs);
 
-  const name = generateName(state.agentType, dirs);
-  if (!isValidAgentName(name)) return false;
-
-  state.agentName = name;
+  let registrationName = generateName(state.agentType, dirs);
+  if (!isValidAgentName(registrationName)) return false;
 
   // Check for collision with live agent
-  const regPath = join(dirs.registry, `${name}.json`);
+  let regPath = join(dirs.registry, `${registrationName}.json`);
   if (fs.existsSync(regPath)) {
     try {
       const existing: AgentRegistration = JSON.parse(
         fs.readFileSync(regPath, "utf-8")
       );
       if (isProcessAlive(existing.pid) && existing.pid !== process.pid) {
-        // Name taken by a live agent (e.g. tmux session was renamed but the
-        // mesh entry kept the old name). Fall back to sequential naming so
-        // we always join the mesh, even if the name won't match tmux.
+        // Name taken by a live agent. Fall back to sequential naming so
+        // we always join the mesh, even if the name won't match the
+        // requested PI_AGENT_NAME.
         const fallback = generateNameSequential(state.agentType, dirs);
         if (!fallback) return false;
-        state.agentName = fallback;
-        // Re-check the fallback name's registration path isn't also taken
-        // (generateNameSequential already verified PID liveness, so just proceed)
-        return register(state, dirs, ctx);
+        registrationName = fallback;
+        regPath = join(dirs.registry, `${registrationName}.json`);
       }
     } catch {
       // Malformed, overwrite
@@ -202,13 +198,13 @@ export function register(
   }
 
   // Create inbox directory
-  ensureDirSync(join(dirs.inbox, name));
+  ensureDirSync(join(dirs.inbox, registrationName));
 
   const gitBranch = getGitBranch(process.cwd());
   const now = new Date().toISOString();
 
   const registration: AgentRegistration = {
-    name,
+    name: registrationName,
     agentType: state.agentType,
     pid: process.pid,
     sessionId: ctx.sessionManager.getSessionId(),
@@ -237,6 +233,7 @@ export function register(
     return false;
   }
 
+  state.agentName = registrationName;
   state.registered = true;
   state.model = ctx.model?.id ?? "unknown";
   state.gitBranch = gitBranch;
@@ -439,7 +436,7 @@ export function renameAgent(
   const oldName = state.agentName;
   const oldRegPath = getRegistrationPath(state, dirs);
 
-  // Write new registration
+  // Write new registration, preserving original session start time.
   const now = new Date().toISOString();
   const registration: AgentRegistration = {
     name: newName,
@@ -448,7 +445,7 @@ export function renameAgent(
     sessionId: ctx.sessionManager.getSessionId(),
     cwd: process.cwd(),
     model: ctx.model?.id ?? "unknown",
-    startedAt: now,
+    startedAt: state.sessionStartedAt,
     reservations:
       state.reservations.length > 0 ? state.reservations : undefined,
     gitBranch: state.gitBranch,
@@ -502,7 +499,6 @@ export function renameAgent(
   }
 
   state.agentName = newName;
-  state.sessionStartedAt = now;
   state.activity.lastActivityAt = now;
   invalidateAgentsCache();
 

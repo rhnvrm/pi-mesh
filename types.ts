@@ -3,6 +3,8 @@
  */
 
 import type * as fs from "node:fs";
+import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { RenameResult } from "./registry.js";
 
 // =============================================================================
 // Configuration
@@ -15,6 +17,7 @@ export interface MeshConfig {
   feedRetention: number;
   stuckThreshold: number;
   autoStatus: boolean;
+  hooksModule?: string;
 }
 
 // =============================================================================
@@ -130,7 +133,54 @@ export interface MeshState {
   customStatus: boolean;
   registryFlushTimer: ReturnType<typeof setTimeout> | null;
   sessionStartedAt: string;
+
+  // Lifecycle hook state — managed by hook implementations, opaque to pi-mesh core.
+  hookState?: Record<string, unknown>;
 }
+
+// =============================================================================
+// Lifecycle Hooks
+// =============================================================================
+
+/**
+ * Actions available to hooks for triggering mesh operations.
+ *
+ * Hooks observe mesh events, but sometimes need to act — e.g., a poll tick
+ * that detects an external tmux rename needs to push that rename into the
+ * mesh registry. HookActions provides a safe way to do this without hooks
+ * reaching into pi-mesh internals (watcher stop/start, registry writes, etc.).
+ */
+export interface HookActions {
+  /** Rename this agent in the mesh. Handles watcher cycling and registry update. */
+  rename(newName: string): Promise<RenameResult>;
+}
+
+/**
+ * Lifecycle hooks that external code can implement to react to mesh events.
+ *
+ * Loaded from a module path specified in pi-mesh.json via `hooksModule`.
+ * The module should export a `createHooks` function that returns this interface.
+ */
+export interface MeshLifecycleHooks {
+  /** Called after successful registration. state.agentName is set. */
+  onRegistered?(state: MeshState, ctx: ExtensionContext, actions: HookActions): void | Promise<void>;
+
+  /** Called after a successful rename via mesh_manage or programmatic rename. */
+  onRenamed?(state: MeshState, ctx: ExtensionContext, result: RenameResult): void | Promise<void>;
+
+  /** Called on a configurable interval while registered. */
+  onPollTick?(state: MeshState, ctx: ExtensionContext, actions: HookActions): void | Promise<void>;
+
+  /**
+   * Called during session shutdown, before unregister.
+   * Does not receive ctx or actions to avoid async shutdown complexity — use
+   * onRegistered or onPollTick for ctx-dependent work, and clean up
+   * synchronously here.
+   */
+  onShutdown?(state: MeshState): void;
+}
+
+export type CreateHooksFn = (config: MeshConfig) => MeshLifecycleHooks;
 
 // =============================================================================
 // Reservation Conflicts

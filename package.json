@@ -1,6 +1,6 @@
 {
   "name": "pi-mesh",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Multi-agent coordination for Pi - presence, messaging, file reservations",
   "type": "module",
   "license": "MIT",
@@ -27,7 +27,7 @@
     ]
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-coding-agent": "^0.58.1",
     "@mariozechner/pi-tui": "*",
     "@sinclair/typebox": "*"
   },
@@ -35,5 +35,8 @@
     "*.ts",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "devDependencies": {
+    "bun-types": "^1.3.10"
+  }
 }

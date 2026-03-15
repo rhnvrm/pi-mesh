@@ -52,11 +52,12 @@ bun test tests/config.test.ts         # specific file
 | Test file | Covers |
 |-----------|--------|
 | `config.test.ts` | Config loading and merging logic |
+| `registry.test.ts` | Agent registration, name collision fallback, rename behavior |
 | `renderer.test.ts` | Overlay rendering and display formatting |
 | `reservations.test.ts` | Reservation conflict detection and path matching |
 | `tracking.test.ts` | Activity tracking and status derivation |
 
-No integration tests yet — the test suite covers config, rendering, reservations, and tracking in isolation. Manual testing with two Pi sessions is the way to verify end-to-end behavior for now.
+No integration tests yet — the test suite covers config, registry, rendering, reservations, and tracking in isolation. Manual testing with two Pi sessions is the way to verify end-to-end behavior for now.
 
 ## CI
 

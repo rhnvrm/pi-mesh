@@ -75,6 +75,21 @@ Seconds of inactivity before an agent is considered "stuck." Stuck agents are fl
 
 Automatically generate agent status from recent activity. When enabled, status messages like "editing src/auth.ts" or "running tests" are set without the agent explicitly calling `mesh_manage`.
 
+### `hooksModule`
+
+**Type:** `string` · **Default:** `undefined`
+
+Path to a module that exports lifecycle hooks. Relative paths are resolved against `process.cwd()`. The module should export a `createHooks(config)` function returning a `MeshLifecycleHooks` object.
+
+```json
+{
+  "autoRegister": true,
+  "hooksModule": "./mesh-hooks.ts"
+}
+```
+
+See [Lifecycle Hooks](../02-extend/hooks.md) for the full API.
+
 ## Config loading order
 
 pi-mesh checks for configuration in this order (highest to lowest priority):

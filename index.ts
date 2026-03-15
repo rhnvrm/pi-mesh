@@ -8,7 +8,9 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
-import type { MeshState, Dirs, MeshMessage, MeshConfig } from "./types.js";
+import { isAbsolute, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import type { MeshState, Dirs, MeshMessage, MeshConfig, MeshLifecycleHooks, CreateHooksFn } from "./types.js";
 import { STATUS_INDICATORS, REGISTRY_FLUSH_MS } from "./types.js";
 import { loadConfig, matchesAutoRegisterPath } from "./config.js";
 import * as registry from "./registry.js";
@@ -45,9 +47,12 @@ export default function piMeshExtension(pi: ExtensionAPI) {
     customStatus: false,
     registryFlushTimer: null,
     sessionStartedAt: new Date().toISOString(),
+    hookState: {},
   };
 
   let dirs: Dirs = registry.resolveDirs(process.cwd());
+  let hooks: MeshLifecycleHooks = {};
+  let hooksPollTimer: ReturnType<typeof setInterval> | null = null;
 
   // ===========================================================================
   // Message Delivery
@@ -90,6 +95,76 @@ export default function piMeshExtension(pi: ExtensionAPI) {
       totalUnread > 0 ? theme.fg("accent", ` ${totalUnread}`) : "";
 
     ctx.ui.setStatus("mesh", `mesh: ${nameStr}${countStr}${unreadStr}`);
+  }
+
+  // ===========================================================================
+  // Lifecycle Hooks
+  // ===========================================================================
+
+  /**
+   * Load lifecycle hooks from the module path in config.
+   * Resolves relative paths against cwd (not the pi-mesh package directory).
+   * Throws on failure so callers can surface the error to the user.
+   */
+  async function loadHooks(): Promise<void> {
+    if (!config.hooksModule) return;
+
+    const specifier = isAbsolute(config.hooksModule)
+      ? config.hooksModule
+      : resolve(process.cwd(), config.hooksModule);
+    const mod = await import(pathToFileURL(specifier).href);
+    const createHooks: CreateHooksFn | undefined = mod.createHooks ?? mod.default;
+    if (typeof createHooks === "function") {
+      hooks = createHooks(config);
+    } else {
+      throw new Error(`hooksModule must export createHooks function, got ${typeof createHooks}`);
+    }
+  }
+
+  function buildHookActions(ctx: ExtensionContext): import("./types.js").HookActions {
+    return {
+      async rename(newName: string) {
+        messaging.stopWatcher(state);
+        const renameResult = registry.renameAgent(state, dirs, ctx, newName);
+        messaging.startWatcher(state, dirs, deliverMessage);
+        updateStatusBar(ctx);
+        if (renameResult.success) {
+          await hooks.onRenamed?.(state, ctx, renameResult);
+        }
+        return renameResult;
+      },
+    };
+  }
+
+  async function startHooksPollTimer(ctx: ExtensionContext): Promise<void> {
+    if (hooksPollTimer || !hooks.onPollTick) return;
+
+    // Default 2s poll interval. Hooks can customize by setting
+    // state.hookState.pollIntervalMs in onRegistered (read once at timer start).
+    const intervalMs = Math.max(
+      250,
+      (state.hookState?.pollIntervalMs as number) || 2000,
+    );
+
+    const actions = buildHookActions(ctx);
+    let pollRunning = false;
+    hooksPollTimer = setInterval(async () => {
+      if (pollRunning) return;
+      pollRunning = true;
+      try {
+        await hooks.onPollTick?.(state, ctx, actions);
+      } catch (err) {
+        ctx.ui.notify(`pi-mesh hooks: onPollTick error: ${err}`, "warning");
+      } finally {
+        pollRunning = false;
+      }
+    }, intervalMs);
+  }
+
+  function stopHooksPollTimer(): void {
+    if (!hooksPollTimer) return;
+    clearInterval(hooksPollTimer);
+    hooksPollTimer = null;
   }
 
   // ===========================================================================
@@ -478,7 +553,7 @@ export default function piMeshExtension(pi: ExtensionAPI) {
     return result(lines.join("\n"));
   }
 
-  function executeRename(name: string | undefined, ctx: ExtensionContext) {
+  async function executeRename(name: string | undefined, ctx: ExtensionContext) {
     if (!name) return result("Error: name required for rename.");
 
     messaging.stopWatcher(state);
@@ -489,6 +564,8 @@ export default function piMeshExtension(pi: ExtensionAPI) {
     if (!renameResult.success) {
       return result(`Error: ${renameResult.error}`);
     }
+
+    await hooks.onRenamed?.(state, ctx, renameResult);
 
     return result(
       `Renamed from "${renameResult.oldName}" to "${renameResult.newName}".`
@@ -542,6 +619,8 @@ export default function piMeshExtension(pi: ExtensionAPI) {
         }
         messaging.startWatcher(state, dirs, deliverMessage);
         updateStatusBar(ctx);
+        await hooks.onRegistered?.(state, ctx, buildHookActions(ctx));
+        await startHooksPollTimer(ctx);
       }
 
       // Import and show overlay
@@ -592,6 +671,13 @@ export default function piMeshExtension(pi: ExtensionAPI) {
     // They have no UI for message delivery and would spam interactive agents.
     if (!ctx.hasUI) return;
 
+    // Load lifecycle hooks early so they're available for onRegistered.
+    try {
+      await loadHooks();
+    } catch (err) {
+      ctx.ui.notify(`pi-mesh: failed to load hooksModule: ${err}`, "error");
+    }
+
     const shouldAutoRegister =
       config.autoRegister ||
       matchesAutoRegisterPath(process.cwd(), config.autoRegisterPaths);
@@ -605,6 +691,9 @@ export default function piMeshExtension(pi: ExtensionAPI) {
       updateStatusBar(ctx);
       feed.pruneFeed(dirs, config.feedRetention);
       feed.logEvent(dirs, state.agentName, "join");
+
+      await hooks.onRegistered?.(state, ctx, buildHookActions(ctx));
+      await startHooksPollTimer(ctx);
 
       // Inject context message so the LLM knows its mesh identity
       if (config.contextMode !== "none") {
@@ -741,6 +830,10 @@ export default function piMeshExtension(pi: ExtensionAPI) {
         reservations.removeAllReservations(state, dirs, ctx);
       }
     }
+
+    // Lifecycle hook shutdown — wrapped so exceptions don't skip cleanup.
+    try { hooks.onShutdown?.(state); } catch { /* ignore */ }
+    stopHooksPollTimer();
 
     // Cleanup timers
     if (state.registryFlushTimer) {

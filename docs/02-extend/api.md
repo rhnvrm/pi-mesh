@@ -16,6 +16,7 @@ interface MeshConfig {
   feedRetention: number;
   stuckThreshold: number;
   autoStatus: boolean;
+  hooksModule?: string;
 }
 ```
 
@@ -81,6 +82,42 @@ interface FeedEvent {
                              // "message" | "commit" | "test" | "edit" | "stuck"
   target?: string;           // File path, agent name, or other context
   preview?: string;          // Short preview text
+}
+```
+
+### `MeshLifecycleHooks`
+
+Hooks for reacting to mesh events. See [Lifecycle Hooks](hooks.md) for usage.
+
+```typescript
+interface MeshLifecycleHooks {
+  onRegistered?(state: MeshState, ctx: ExtensionContext, actions: HookActions): void | Promise<void>;
+  onRenamed?(state: MeshState, ctx: ExtensionContext, result: RenameResult): void | Promise<void>;
+  onPollTick?(state: MeshState, ctx: ExtensionContext, actions: HookActions): void | Promise<void>;
+  onShutdown?(state: MeshState): void;
+}
+```
+
+### `HookActions`
+
+Actions available to hooks for triggering mesh operations.
+
+```typescript
+interface HookActions {
+  rename(newName: string): Promise<RenameResult>;
+}
+```
+
+### `RenameResult`
+
+Result of a rename operation (from `registry.ts`).
+
+```typescript
+interface RenameResult {
+  success: boolean;
+  oldName?: string;
+  newName?: string;
+  error?: string;  // "not_registered" | "invalid_name" | "same_name" | "name_taken" | "write_failed" | "race_lost" | "verify_failed"
 }
 ```
 

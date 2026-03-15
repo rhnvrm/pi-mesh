@@ -48,5 +48,6 @@ Reservations are enforced by hooking Pi's `edit` and `write` tools. When an agen
 
 ## Extending
 
-- [Development](02-extend/development.md)
+- [Lifecycle hooks](02-extend/hooks.md)
 - [API reference](02-extend/api.md)
+- [Development](02-extend/development.md)
